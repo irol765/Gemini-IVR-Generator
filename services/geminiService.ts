@@ -31,6 +31,8 @@ export const generateSpeech = async (
     const contentType = response.headers.get("content-type");
     if (!contentType || !contentType.includes("application/json")) {
       const textResponse = await response.text();
+      console.error("Server returned non-JSON response:", textResponse);
+
       // Detect Vite/SPA fallback HTML
       if (textResponse.includes("<!DOCTYPE html>") || textResponse.includes("<html")) {
         throw new Error(
@@ -38,7 +40,7 @@ export const generateSpeech = async (
           "If running locally, you must use 'vercel dev' to run serverless functions. 'npm run dev' only runs the frontend."
         );
       }
-      throw new Error(`Server returned unexpected format: ${response.status} ${response.statusText}`);
+      throw new Error(`Server returned unexpected format: ${response.status} ${response.statusText}. Check console for details.`);
     }
 
     const data = await response.json();

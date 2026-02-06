@@ -2,6 +2,7 @@
   "name": "gemini-ivr-generator",
   "version": "1.0.0",
   "description": "AI Voicemail Generator",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
