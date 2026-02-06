@@ -53,9 +53,10 @@ const App: React.FC = () => {
       // Cleanup context
       audioContext.close();
 
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Failed to generate audio. Please check your API Key and internet connection.");
+      // Display the actual error message from the service/API
+      setError(err.message || "Failed to generate audio. Please check your API Key and internet connection.");
     } finally {
       setIsGenerating(false);
     }
@@ -106,9 +107,12 @@ const App: React.FC = () => {
         />
 
         {error && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-xl flex items-center gap-3 border border-red-100">
-            <AlertCircle size={20} />
-            <span className="font-medium">{error}</span>
+          <div className="bg-red-50 text-red-600 p-4 rounded-xl flex items-start gap-3 border border-red-100 animate-fade-in">
+            <AlertCircle size={20} className="mt-0.5 flex-shrink-0" />
+            <div className="flex flex-col gap-1">
+              <span className="font-bold text-sm uppercase tracking-wider">Error</span>
+              <span className="font-medium text-sm whitespace-pre-wrap">{error}</span>
+            </div>
           </div>
         )}
 

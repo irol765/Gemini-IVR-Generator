@@ -1,24 +1,41 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Vercel Serverless Function Handler
-export default async function handler(request: Request) {
-  if (request.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
+/**
+ * Vercel Serverless Function (Node.js Runtime)
+ * Uses standard (req, res) signature instead of Web Standard (Request, Response)
+ * to ensure maximum compatibility with Vercel's default environment.
+ */
+export default async function handler(req: any, res: any) {
+  // CORS (Optional: allows local dev from different ports if needed, but mainly for structure)
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { text, voiceName, speed } = await request.json();
+    // Vercel automatically parses JSON body into req.body
+    const { text, voiceName, speed } = req.body;
 
     if (!text) {
-      return new Response(JSON.stringify({ error: 'Text is required' }), { status: 400 });
+      return res.status(400).json({ error: 'Text is required' });
     }
 
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'Server configuration error: API_KEY missing' }), { status: 500 });
+      console.error("Server Error: Missing API_KEY in environment variables.");
+      return res.status(500).json({ error: 'Server configuration error: API_KEY missing. Please add it to your Vercel project settings or .env file.' });
     }
 
     const ai = new GoogleGenAI({ apiKey });
@@ -31,6 +48,7 @@ export default async function handler(request: Request) {
       promptText = `Speak quickly and efficiently: ${text}`;
     }
 
+    // Call Gemini API
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: promptText,
@@ -49,20 +67,21 @@ export default async function handler(request: Request) {
     if (!audioData) {
       const textData = response.candidates?.[0]?.content?.parts?.[0]?.text;
       if (textData) {
-         return new Response(JSON.stringify({ error: `Gemini returned text instead of audio: ${textData}` }), { status: 500 });
+         // This usually happens if the model refuses to generate audio (policy violation or misunderstanding)
+         return res.status(500).json({ error: `Gemini refused to generate audio and returned text: "${textData}"` });
       }
-      return new Response(JSON.stringify({ error: 'No audio data received' }), { status: 500 });
+      return res.status(500).json({ error: 'No audio data received from Gemini API' });
     }
 
-    return new Response(JSON.stringify({ audioData }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    // Return successful JSON response
+    return res.status(200).json({ audioData });
 
   } catch (error: any) {
-    console.error("API Error:", error);
-    return new Response(JSON.stringify({ error: error.message || 'Internal Server Error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
+    console.error("API Execution Error:", error);
+    // Return the actual error message to the client for debugging
+    return res.status(500).json({ 
+      error: error.message || 'Internal Server Error',
+      details: error.toString() 
     });
   }
 }
