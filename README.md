@@ -1,11 +1,18 @@
-<div align="center">
+# Gemini IVR Voice Generator
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+A professional web tool to generate voicemail greetings and telephone prompts using Google's Gemini AI. It supports exporting audio in specific legacy formats (WAV) required by telephone hardware.
 
-  <h1>Built with AI Studio</h2>
+## Features
+*   **AI Text-to-Speech**: Uses `gemini-2.5-flash-preview-tts` for natural speech.
+*   **Customization**: Select voice gender/tone and adjust speaking speed.
+*   **Telephony Formats**: 
+    *   Downsample audio to **5kHz** (User Request) or **8kHz** (Standard Telephony).
+    *   Export as **.wav** (16-bit PCM).
+*   **Bilingual Interface**: English and Chinese support.
 
-  <p>The fastest path from prompt to production with Gemini.</p>
-
-  <a href="https://aistudio.google.com/apps">Start building</a>
-
-</div>
+## Usage
+1.  Set your `API_KEY` in the environment.
+2.  Type your greeting text.
+3.  Select voice and speed.
+4.  Click "Generate".
+5.  Preview and download the formatted WAV file.

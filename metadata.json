@@ -1,0 +1,5 @@
+{
+  "name": "Gemini IVR Voice Generator",
+  "description": "Generate professional voicemail greetings using Gemini AI, with export support for specific telephony formats (WAV 5kHz/8kHz).",
+  "requestFramePermissions": []
+}
