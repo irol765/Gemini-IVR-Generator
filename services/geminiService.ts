@@ -6,9 +6,9 @@ export const generateSpeech = async (
   speed: SpeakingSpeed
 ): Promise<string> => {
   
-  // Create an AbortController for timeout (60 seconds)
+  // Create an AbortController for timeout (90 seconds - TTS can be slow)
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000);
+  const timeoutId = setTimeout(() => controller.abort(), 90000);
 
   try {
     const response = await fetch('/api/tts', {
@@ -27,7 +27,6 @@ export const generateSpeech = async (
     clearTimeout(timeoutId);
 
     // CRITICAL: Check if response is actually JSON. 
-    // If running `npm run dev` locally, Vite serves `index.html` for unknown routes like /api/tts.
     const contentType = response.headers.get("content-type");
     if (!contentType || !contentType.includes("application/json")) {
       const textResponse = await response.text();
@@ -37,10 +36,11 @@ export const generateSpeech = async (
       if (textResponse.includes("<!DOCTYPE html>") || textResponse.includes("<html")) {
         throw new Error(
           "Environment Error: Backend API not found. \n" +
-          "If running locally, you must use 'vercel dev' to run serverless functions. 'npm run dev' only runs the frontend."
+          "Are you running 'vercel dev'? (Required for API support)\n" +
+          "Do not use 'npm run dev' or 'vite' directly."
         );
       }
-      throw new Error(`Server returned unexpected format: ${response.status} ${response.statusText}. Check console for details.`);
+      throw new Error(`Server returned unexpected format: ${response.status} ${response.statusText}. See console.`);
     }
 
     const data = await response.json();
@@ -59,7 +59,7 @@ export const generateSpeech = async (
     console.error("Gemini TTS Error:", error);
     
     if (error.name === 'AbortError') {
-      throw new Error("Generation timed out (60s). The model is taking too long.");
+      throw new Error("Request timed out (90s). The server might be busy or the connection was lost. Please try again.");
     }
     
     throw error;
