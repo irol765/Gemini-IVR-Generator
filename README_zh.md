@@ -3,6 +3,7 @@
 一个专业的 Web 工具，利用 Google Gemini AI 生成电话答录机问候语和提示音。支持导出电话硬件所需的特定旧版格式 (WAV)。
 
 ## 功能特点
+*   **访问控制**: 可设置访问密码保护。
 *   **AI 文本转语音**: 使用 `gemini-2.5-flash-preview-tts` 生成自然语音。
 *   **安全部署**: API Key 存储在后端 (Vercel Serverless)，前端零泄露。
 *   **电话格式支持**:
@@ -30,9 +31,10 @@
 2.  在 Vercel Dashboard 导入项目。
 3.  在 Vercel 项目设置中添加环境变量:
     *   `API_KEY`: 您的 Google Gemini API Key。
+    *   `ACCESS_PASSWORD`: (可选) 设置访问密码。如果不设置，任何人都可以访问。
 
 ## 使用说明
-1.  配置好环境变量后启动程序。
+1.  如果设置了密码，进入页面时需先登录。
 2.  输入您的问候语文本。
 3.  选择声音和语速。
 4.  点击 "生成 (Generate)"。

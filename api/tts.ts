@@ -1,7 +1,6 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 
 // Vercel Serverless Function (Node.js)
-// Using (req, res) is the most stable pattern for Vercel Functions to avoid hanging on body parsing.
 export default async function handler(req: any, res: any) {
   // 1. CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -9,7 +8,7 @@ export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-access-password'
   );
 
   // 2. Handle Preflight
@@ -24,6 +23,18 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    // --- SECURITY CHECK ---
+    const serverPassword = process.env.ACCESS_PASSWORD;
+    if (serverPassword) {
+      const clientPassword = req.headers['x-access-password'];
+      // Allow if passwords match, OR if the header is missing but the server logic handles it (strict mode: require it)
+      if (clientPassword !== serverPassword) {
+        console.warn("Unauthorized access attempt to /api/tts");
+        return res.status(401).json({ error: 'Unauthorized: Invalid Access Password' });
+      }
+    }
+    // ----------------------
+
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
       console.error("CRITICAL: API_KEY is missing in environment variables.");
@@ -35,7 +46,7 @@ export default async function handler(req: any, res: any) {
     // Vercel (and Express-like environments) automatically populate req.body if Content-Type is application/json
     const body = req.body;
     
-    // Fallback: If body is string (sometimes happens in raw mode), parse it
+    // Fallback parsing
     const { text, voiceName, speed } = typeof body === 'string' ? JSON.parse(body) : body;
 
     if (!text) {
@@ -57,7 +68,7 @@ export default async function handler(req: any, res: any) {
       model: "gemini-2.5-flash-preview-tts",
       contents: promptText,
       config: {
-        responseModalities: [Modality.AUDIO], // Use Enum
+        responseModalities: [Modality.AUDIO], 
         speechConfig: {
           voiceConfig: {
             prebuiltVoiceConfig: { voiceName: voiceName || 'Puck' },
@@ -70,7 +81,6 @@ export default async function handler(req: any, res: any) {
 
     if (!audioData) {
       const textData = response.candidates?.[0]?.content?.parts?.[0]?.text;
-      // Log for server-side debugging
       console.error("Gemini Response Missing Audio. Content received:", JSON.stringify(response.candidates?.[0]?.content));
       
       if (textData) {
@@ -84,7 +94,6 @@ export default async function handler(req: any, res: any) {
 
   } catch (error: any) {
     console.error("Unhandled API Error:", error);
-    // Ensure we ALWAYS return JSON, even for crashes
     const errorMessage = error instanceof Error ? error.message : 'Unknown Server Error';
     return res.status(500).json({ 
       error: errorMessage,

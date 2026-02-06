@@ -11,8 +11,9 @@
 *   **Audio Processing**: Native Web Audio API (OfflineAudioContext)
 
 # Environment Variables
-The application requires the following keys to be available in `process.env`:
+The application requires the following keys to be available in `process.env` (Vercel Project Settings):
 *   `API_KEY`: Google Gemini API Key.
+*   `ACCESS_PASSWORD`: (Optional) A password to protect the application. If not set, the app is open.
 
 # Engineering Standards
 1.  **Bilingual UI**: All text must be bilingual (English/Chinese).

@@ -2,12 +2,20 @@ import React, { useState, useRef, useEffect } from 'react';
 import { generateSpeech } from './services/geminiService';
 import { decodeBase64Audio, resampleAudioBuffer, encodeToWav } from './utils/audioUtils';
 import { ControlPanel } from './components/ControlPanel';
+import { LoginScreen } from './components/LoginScreen'; // Import Login
 import { GeneratedAudioData, SpeakingSpeed, AudioSampleRate } from './types';
 import { UI_TEXT, VOICES } from './constants';
-import { Phone, Download, Play, Pause, AlertCircle } from 'lucide-react';
+import { Phone, Download, Play, Pause, AlertCircle, LogOut } from 'lucide-react';
+
+const AUTH_STORAGE_KEY = 'gemini_ivr_auth_code';
 
 const App: React.FC = () => {
-  // State
+  // --- Auth State ---
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
+  const [authPassword, setAuthPassword] = useState<string>('');
+
+  // --- App State ---
   const [text, setText] = useState<string>("");
   const [selectedVoice, setSelectedVoice] = useState<string>(VOICES[0].id);
   const [selectedSpeed, setSelectedSpeed] = useState<SpeakingSpeed>(SpeakingSpeed.NORMAL);
@@ -17,11 +25,60 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GeneratedAudioData | null>(null);
   
-  // Audio Playback State
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Handle generation
+  // --- Auth Logic ---
+  const verifyPassword = async (pwd: string): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pwd })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAuthPassword(pwd);
+        setIsAuthenticated(true);
+        localStorage.setItem(AUTH_STORAGE_KEY, pwd);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error("Auth verification failed", e);
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    const initAuth = async () => {
+      const storedPwd = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (storedPwd) {
+        const isValid = await verifyPassword(storedPwd);
+        if (!isValid) {
+          localStorage.removeItem(AUTH_STORAGE_KEY);
+        }
+      } else {
+        // If no stored password, check if the server is in Open Mode (no password set)
+        // by sending an empty password. If server allows, we are in.
+        // Actually, better UX: just show login screen. If server is open, any password works or we can auto-check.
+        // Let's keep it simple: Show login screen unless storage exists.
+      }
+      setIsAuthChecking(false);
+    };
+    initAuth();
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    setAuthPassword('');
+    setIsAuthenticated(false);
+    setResult(null);
+    setText("");
+  };
+
+  // --- Main Logic ---
+
   const handleGenerate = async () => {
     setIsGenerating(true);
     setError(null);
@@ -29,17 +86,12 @@ const App: React.FC = () => {
     setIsPlaying(false);
 
     try {
-      // 1. Call Gemini API
-      const base64Audio = await generateSpeech(text, selectedVoice, selectedSpeed);
+      // Pass authPassword to service
+      const base64Audio = await generateSpeech(text, selectedVoice, selectedSpeed, authPassword);
 
-      // 2. Process Audio
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const decodedBuffer = await decodeBase64Audio(base64Audio, audioContext);
-      
-      // 3. Resample to target rate (e.g., 5000Hz or 8000Hz)
       const resampledBuffer = await resampleAudioBuffer(decodedBuffer, selectedSampleRate);
-      
-      // 4. Encode to WAV
       const wavBlob = encodeToWav(resampledBuffer);
       const wavUrl = URL.createObjectURL(wavBlob);
 
@@ -50,13 +102,17 @@ const App: React.FC = () => {
         sampleRate: selectedSampleRate
       });
 
-      // Cleanup context
       audioContext.close();
 
     } catch (err: any) {
       console.error(err);
-      // Display the actual error message from the service/API
-      setError(err.message || "Failed to generate audio. Please check your API Key and internet connection.");
+      if (err.message && err.message.includes("Authorization")) {
+        // If API says unauthorized (maybe password rotated), logout user
+        handleLogout();
+        alert("Session expired. Please login again.");
+      } else {
+        setError(err.message || "Failed to generate audio.");
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -73,13 +129,33 @@ const App: React.FC = () => {
     }
   };
 
-  // Reset playing state when audio ends
   const handleAudioEnded = () => setIsPlaying(false);
+
+  // --- Render ---
+
+  if (isAuthChecking) {
+    return <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+    </div>;
+  }
+
+  if (!isAuthenticated) {
+    return <LoginScreen onLogin={verifyPassword} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center py-10 px-4 font-sans">
       
-      <header className="mb-8 text-center space-y-2">
+      <header className="mb-8 text-center space-y-2 relative w-full max-w-2xl">
+        {/* Logout Button */}
+        <button 
+          onClick={handleLogout}
+          className="absolute right-0 top-0 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+          title="Logout"
+        >
+          <LogOut size={20} />
+        </button>
+
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 mb-4 shadow-inner">
           <Phone className="text-blue-600" size={32} />
         </div>

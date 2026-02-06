@@ -3,19 +3,26 @@ import { SpeakingSpeed } from "../types";
 export const generateSpeech = async (
   text: string, 
   voiceName: string, 
-  speed: SpeakingSpeed
+  speed: SpeakingSpeed,
+  password?: string
 ): Promise<string> => {
   
   // Create an AbortController for timeout (90 seconds - TTS can be slow)
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 90000);
 
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (password) {
+    headers['x-access-password'] = password;
+  }
+
   try {
     const response = await fetch('/api/tts', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: headers,
       body: JSON.stringify({
         text,
         voiceName,
@@ -46,6 +53,9 @@ export const generateSpeech = async (
     const data = await response.json();
 
     if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Authorization Failed: Password required or incorrect.");
+      }
       throw new Error(data.error || `Server Error: ${response.status}`);
     }
 
